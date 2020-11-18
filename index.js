@@ -1,108 +1,77 @@
-const core = require('@actions/core')
+const core = require('@actions/core');
 const exec = require('@actions/exec');
-const {GitHub, context} = require('@actions/github')
-const semver = require('semver')
+const semver = require('semver');
 
-async function getMostRecentRepoTag() {
-  console.log('Getting list of tags from repository')
-  const token = core.getInput('github_token', { required: true })
-  const octokit = new GitHub(token)
+/**
+ * convert the version string to semver object and return the higher version.
+ * @param {Array} tags list of tags.
+ */
+async function getMostRecentRepoTag(tags) {
+  const versions = tags
+      .map((tag) => semver.parse(tag, {loose: true}))
+      .filter((version) => version !== null)
+      .sort(semver.rcompare);
 
-  const { data: refs } = await octokit.git.listRefs({
-    ...context.repo,
-    namespace: 'tags/'
-  })
-
-  const versions = refs
-    .map(ref => semver.parse(ref.ref.replace(/^refs\/tags\//g, ''), { loose: true }))
-    .filter(version => version !== null)
-    .sort(semver.rcompare)
-
-  return versions[0] || semver.parse('0.0.0')
+  return versions[0] || semver.parse('0.0.0');
 }
 
-async function getMostRecentBranchTag() {
-  console.log(`Getting list of tags from branch`)
-  let output = ''
-  let err = ''
-  const options = {}
+/**
+ * fetch the list of tags from cwd.
+ * @param  {string} cwd
+ */
+async function getTags(cwd) {
+  console.log(`Getting list of tags from branch`);
+  let output = '';
+  let err = '';
+  const options = {};
   options.listeners = {
     stdout: (data) => {
-      output += data.toString()
+      output += data.toString();
     },
     stderr: (data) => {
-      err += data.toString()
-    }
+      err += data.toString();
+    },
   };
-  options.cwd = './'
-  let exitCode = await exec.exec(`/usr/bin/git`, ['fetch', '--tags', '--quiet'], options)
+  options.silent = true;
+  options.cwd = cwd || './';
+  let exitCode = await exec.exec(`/usr/bin/git`, ['fetch', '--tags', '--quiet'],
+      options);
   if (exitCode != 0) {
-    console.log(err)
-    process.exit(exitCode)
+    console.log(err);
+    process.exit(exitCode);
   }
-  exitCode = await exec.exec(`/usr/bin/git`, ['tag', '--no-column', '--merged'], options)
+  exitCode = await exec.exec(`/usr/bin/git`, ['tag', '--no-column', '--merged'],
+      options);
   if (exitCode != 0) {
-    console.log(err)
-    process.exit(exitCode)
+    console.log(err);
+    process.exit(exitCode);
   }
-  const versions = output.split("\n")
-    .map(tag => semver.parse(tag, { loose: true }))
-    .filter(version => version !== null)
-    .sort(semver.rcompare)
-
-  return versions[0] || semver.parse('0.0.0')
+  return output.split('\n');
 }
 
-async function mostRecentTag() {
-  const perBranch = core.getInput('per_branch', { required: false })
-  if (perBranch) {
-    return getMostRecentBranchTag()
-  } else {
-    return getMostRecentRepoTag()
-  }
-}
-
-async function createTag(version) {
-  const token = core.getInput('github_token', { required: true })
-  const octokit = new GitHub(token)
-  const sha = core.getInput('sha') || context.sha
-  const ref = `refs/tags/${version}`
-  await octokit.git.createRef({
-    ...context.repo,
-    ref,
-    sha
-  })
-}
-
+/** run the program
+ */
 async function run() {
   try {
-    let version = semver.parse(process.env.VERSION)
-    if (version === null) {
-      const bump = core.getInput('bump', { required: true })
-      const latestTag = await mostRecentTag()
-      const identifier = core.getInput('preid', { required: false }) || ""
-      console.log(`Using latest tag "${latestTag.toString()}" with identifier "${identifier}"`)
-      version = semver.inc(latestTag, bump, identifier)
-    }
+    const bump = core.getInput('bump', {required: true});
+    const tags = await getTags();
+    const latestTag = await getMostRecentRepoTag(tags);
+    const identifier = core.getInput('preid', {required: false}) || '';
+    console.log(`latestTag ${latestTag}`);
+    version = semver.inc(latestTag, bump, identifier);
+    console.log(`version ${version}`);
 
-    const prefix = core.getInput('prefix', {required: false}) || ""
-    let version_tag = prefix + version.toString()
-    console.log(`Using tag prefix "${prefix}"`)
-
-    core.exportVariable('VERSION', version.toString())
-    core.setOutput('version', version.toString())
-    core.setOutput('version_optimistic', `${semver.major(version)}.${semver.minor(version)}`)
-    core.setOutput('version_tag', version_tag)
-
-    console.log(`Result: "${version.toString()}" (tag: "${version_tag}")`)
-
-    if (core.getInput('dry_run') !== 'true') {
-      await createTag(version_tag)
-    }
-  } 
-  catch (error) {
-    core.setFailed(error.message)
+    const prefix = core.getInput('prefix', {required: false}) || 'v';
+    const versionTag = prefix + version.toString();
+    core.exportVariable('VERSION', version.toString());
+    core.setOutput('version', version.toString());
+    console.log(`Result: "${version.toString()}" (tag: "${versionTag}")`);
+  } catch (error) {
+    core.setFailed(error.message);
   }
 }
 
-run()
+
+run();
+
+module.exports = getMostRecentRepoTag

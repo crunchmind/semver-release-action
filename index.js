@@ -63,7 +63,7 @@ async function run() {
 
     const prefix = core.getInput('prefix', {required: false}) || 'v';
     const versionTag = prefix + version.toString();
-    core.saveState('VERSION', versionTag);
+    core.setOutput('VERSION', versionTag);
     console.log(`Result: "${version.toString()}" (tag: "${versionTag}")`);
   } catch (error) {
     core.setFailed(error.message);

@@ -9,7 +9,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/zwaldowski/semver-release-action.git"
+    "url": "git+https://github.com/crunchmind/semver-release-action.git"
   },
   "keywords": [
     "GitHub",
@@ -19,9 +19,9 @@
   "author": "GitHub",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/zwaldowski/semver-release-action/issues"
+    "url": "https://github.com/crunchmind/semver-release-action/issues"
   },
-  "homepage": "https://github.com/zwaldowski/semver-release-action#readme",
+  "homepage": "https://github.com/crunchmind/semver-release-action#readme",
   "dependencies": {
     "@actions/core": "^1.1.1",
     "@actions/exec": "^1.0.4",

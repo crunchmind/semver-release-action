@@ -73,4 +73,4 @@ async function run() {
 
 run();
 
-module.exports = getMostRecentRepoTag
+module.exports = getMostRecentRepoTag;
